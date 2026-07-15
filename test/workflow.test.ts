@@ -1,48 +1,121 @@
-import { env, introspectWorkflowInstance } from "cloudflare:test";
+import worker from "../worker/index";
 import { describe, it, expect } from "vitest";
 
-describe("MyWorkflow", () => {
-	it("completes and returns expected step result", async () => {
-		const instanceId = `test-${Date.now()}`;
+class InMemoryBucket {
+	private readonly objects = new Map<
+		string,
+		{ body: Uint8Array; contentType: string; etag: string }
+	>();
 
-		await using instance = await introspectWorkflowInstance(
-			env.MY_WORKFLOW,
-			instanceId,
-		);
-
-		await instance.modify(async (m) => {
-			await m.disableSleeps();
-			await m.mockEvent({
-				type: "user-approval",
-				payload: { approved: true },
-			});
+	async put(
+		key: string,
+		value: ArrayBuffer,
+		options?: { httpMetadata?: { contentType?: string } },
+	) {
+		const etag = crypto.randomUUID();
+		this.objects.set(key, {
+			body: new Uint8Array(value),
+			contentType: options?.httpMetadata?.contentType || "application/octet-stream",
+			etag,
 		});
 
-		await env.MY_WORKFLOW.create({ id: instanceId });
+		return { etag };
+	}
 
-		const result = await instance.waitForStepResult({ name: "process data" });
+	async get(key: string) {
+		const object = this.objects.get(key);
+		if (!object) {
+			return null;
+		}
 
-		expect(result).toMatchObject({
-			processed: true,
+		return {
+			body: object.body,
+			httpEtag: object.etag,
+			writeHttpMetadata: (headers: Headers) => {
+				headers.set("content-type", object.contentType);
+			},
+		};
+	}
+
+	async delete(key: string) {
+		this.objects.delete(key);
+	}
+}
+
+const createEnv = (): Env => {
+	return {
+		IMAGES_BUCKET: new InMemoryBucket() as unknown as R2Bucket,
+	} as Env;
+};
+
+describe("Image endpoints", () => {
+	it("uploads image to R2", async () => {
+		const env = createEnv();
+		const form = new FormData();
+		form.set("file", new File([new Uint8Array([1, 2, 3])], "car.png", { type: "image/png" }));
+
+		const request = new Request("https://example.com/api/images/upload", {
+			method: "POST",
+			body: form,
 		});
-		expect(result).toHaveProperty("timestamp");
+
+		const response = await worker.fetch(request, env);
+		expect(response.status).toBe(200);
+
+		const data = (await response.json()) as {
+			success: boolean;
+			key: string;
+			contentType: string;
+		};
+
+		expect(data.success).toBe(true);
+		expect(data.key.startsWith("uploads/")).toBe(true);
+		expect(data.contentType).toBe("image/png");
 	});
 
-	it("errors when approval event times out", async () => {
-		const instanceId = `test-${Date.now()}`;
+	it("rejects non-image file types", async () => {
+		const env = createEnv();
+		const form = new FormData();
+		form.set("file", new File(["hello"], "note.txt", { type: "text/plain" }));
 
-		await using instance = await introspectWorkflowInstance(
-			env.MY_WORKFLOW,
-			instanceId,
-		);
-
-		await instance.modify(async (m) => {
-			await m.disableSleeps();
-			await m.forceEventTimeout({ name: "wait for approval" });
+		const request = new Request("https://example.com/api/images/upload", {
+			method: "POST",
+			body: form,
 		});
 
-		await env.MY_WORKFLOW.create({ id: instanceId });
+		const response = await worker.fetch(request, env);
+		expect(response.status).toBe(400);
+	});
 
-		await expect(instance.waitForStatus("errored")).resolves.not.toThrow();
+	it("gets and deletes an uploaded image", async () => {
+		const env = createEnv();
+		const form = new FormData();
+		form.set("file", new File([new Uint8Array([9, 8, 7])], "car.webp", { type: "image/webp" }));
+
+		const uploadRequest = new Request("https://example.com/api/images/upload", {
+			method: "POST",
+			body: form,
+		});
+
+		const uploadResponse = await worker.fetch(uploadRequest, env);
+		const uploadData = (await uploadResponse.json()) as { key: string };
+
+		const getRequest = new Request(
+			`https://example.com/api/images/${encodeURIComponent(uploadData.key)}`,
+			{ method: "GET" },
+		);
+		const getResponse = await worker.fetch(getRequest, env);
+		expect(getResponse.status).toBe(200);
+		expect(getResponse.headers.get("content-type")).toBe("image/webp");
+
+		const deleteRequest = new Request(
+			`https://example.com/api/images/${encodeURIComponent(uploadData.key)}`,
+			{ method: "DELETE" },
+		);
+		const deleteResponse = await worker.fetch(deleteRequest, env);
+		expect(deleteResponse.status).toBe(200);
+
+		const notFoundResponse = await worker.fetch(getRequest, env);
+		expect(notFoundResponse.status).toBe(404);
 	});
 });
