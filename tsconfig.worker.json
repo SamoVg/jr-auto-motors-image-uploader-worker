@@ -1,8 +1,11 @@
 {
-	"extends": "./tsconfig.node.json",
 	"compilerOptions": {
 		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
 		"lib": ["ESNext"],
+		"module": "ESNext",
+		"target": "ES2022",
+		"moduleResolution": "Bundler",
+		"skipLibCheck": true,
 		"types": [
 			"./worker-configuration.d.ts",
 			"vite/client",

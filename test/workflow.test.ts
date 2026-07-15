@@ -65,11 +65,15 @@ describe("Image endpoints", () => {
 		const data = (await response.json()) as {
 			success: boolean;
 			key: string;
+			url: string;
 			contentType: string;
 		};
 
 		expect(data.success).toBe(true);
 		expect(data.key.startsWith("uploads/")).toBe(true);
+		expect(data.url).toBe(
+			`https://example.com/api/images/${encodeURIComponent(data.key)}`,
+		);
 		expect(data.contentType).toBe("image/png");
 	});
 

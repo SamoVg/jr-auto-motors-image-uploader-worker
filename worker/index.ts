@@ -111,6 +111,7 @@ export default {
 				const extension = getFileExtension(file);
 				const uploadedAt = new Date().toISOString();
 				const key = `uploads/${uploadedAt.slice(0, 10)}/${crypto.randomUUID()}.${extension}`;
+				const imageUrl = `${url.origin}/api/images/${encodeURIComponent(key)}`;
 				const body = await file.arrayBuffer();
 
 				const result = await env.IMAGES_BUCKET.put(key, body, {
@@ -127,6 +128,7 @@ export default {
 				return jsonResponse({
 					success: true,
 					key,
+					url: imageUrl,
 					etag: result.etag,
 					size: file.size,
 					contentType: file.type,
