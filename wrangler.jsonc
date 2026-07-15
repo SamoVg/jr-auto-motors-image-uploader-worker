@@ -10,6 +10,12 @@
 	"observability": {
 		"enabled": true
 	},
+	"migrations": [
+		{
+			"tag": "v2",
+			"deleted_classes": ["WorkflowStatusDO"]
+		}
+	],
 	"r2_buckets": [
 		{
 			"binding": "IMAGES_BUCKET",
