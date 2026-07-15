@@ -7,10 +7,6 @@
 	"name": "jr-auto-motors-image-uploader-worker",
 	"main": "worker/index.ts",
 	"compatibility_date": "2025-10-08",
-	"assets": {
-		"directory": "./dist",
-		"not_found_handling": "single-page-application"
-	},
 	"observability": {
 		"enabled": true
 	},

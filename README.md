@@ -1,39 +1,29 @@
-# Cloudflare Workflows Starter Template
+# Image Upload Worker
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/templates/tree/main/workflows-starter-template)
+Worker de Cloudflare para subir imágenes a R2 y devolver una URL pública lista para guardar en Firebase.
 
-<!-- dash-content-start -->
+## Endpoints
 
-A real-time, interactive demonstration of [Cloudflare Workflows](https://developers.cloudflare.com/workflows) with live updates via WebSockets and Durable Objects. This template showcases durable multi-step workflows with time-based delays, event-driven pauses, and real-time status visualization.
+- `POST /api/images/upload` sube un archivo `multipart/form-data` con campo `file`.
+- `GET /api/images/:key` descarga una imagen guardada.
+- `DELETE /api/images/:key` elimina una imagen guardada.
 
-<!-- dash-content-end -->
-
-![Cloudflare Workflows Starter Template](assets/template-screenshot.png)
-
-## Getting Started
-
-### Installation
+## Scripts
 
 ```bash
 npm install
-```
-
-### Development
-
-```bash
 npm run dev
-```
-
-Visit `http://localhost:5173` to see the interactive demo.
-
-### Deployment
-
-```bash
+npm run build
+npm run test
 npm run deploy
 ```
 
-## Learn More
+## Respuesta de upload
 
-- [Cloudflare Workflows Documentation](https://developers.cloudflare.com/workflows)
-- [Durable Objects Documentation](https://developers.cloudflare.com/durable-objects)
-- [Workers Documentation](https://developers.cloudflare.com/workers)
+```json
+{
+	"success": true,
+	"key": "uploads/2026-07-15/uuid.png",
+	"url": "https://tu-dominio.workers.dev/api/images/uploads%2F2026-07-15%2Fuuid.png"
+}
+```

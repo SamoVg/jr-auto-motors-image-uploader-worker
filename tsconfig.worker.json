@@ -8,7 +8,6 @@
 		"skipLibCheck": true,
 		"types": [
 			"./worker-configuration.d.ts",
-			"vite/client",
 			"@cloudflare/vitest-pool-workers"
 		]
 	},
